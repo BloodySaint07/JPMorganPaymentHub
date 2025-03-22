@@ -178,6 +178,7 @@ public class PaymentServiceImpl implements PaymentService {
                     creditCard.setCardNumber(account.getCreditCardNumber());
                     creditCard.setProvider(paymentUtility.guessProvider(account.getCreditCardNumber()));
                     creditCard.setCardHolderName(account.getAccountName());
+                    creditCard.setAccountDetails(accountEntity);
                     paymentMethods.add(creditCard);
                 }
 
@@ -188,6 +189,7 @@ public class PaymentServiceImpl implements PaymentService {
                     debitCard.setCardNumber(account.getDebitCardNumber());
                     debitCard.setProvider(paymentUtility.guessProvider(account.getDebitCardNumber()));
                     debitCard.setCardHolderName(account.getAccountName());
+                    debitCard.setAccountDetails(accountEntity);
                     paymentMethods.add(debitCard);
                 }
             }

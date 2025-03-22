@@ -29,7 +29,9 @@ public class PaymentDetails {
 
     @Column(length = 100)
     private String cardHolderName;
-
+    @ManyToOne
+    @JoinColumn(name="account_id", nullable = false)
+    private AccountDetails accountDetails;
     @OneToMany(mappedBy = "paymentMethod", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
     private List<TransactionDetail> transactions = new ArrayList<>();

@@ -12,8 +12,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.persistence.EntityManager;
+import javax.persistence.LockModeType;
+import javax.persistence.PersistenceContext;
+import javax.persistence.TypedQuery;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+
+import static com.jpmorgan.JPMorganPaymentHub.constant.SQLQueries.FETCH_TRAN_DETAILS_BY_TRANSACTION_REF;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
@@ -28,6 +34,8 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Autowired
     private PaymentMethodRepository paymentMethodRepository;
+    @PersistenceContext
+    EntityManager entityManager;
 
     @Override
     @Transactional
@@ -61,4 +69,23 @@ public class TransactionServiceImpl implements TransactionService {
 
         return savedTransaction;
     }
+
+    @Override
+    @Transactional
+    public TransactionDetail getTransactionByReferenceNumber(String referenceNumber) {
+        log.info("Getting transaction by reference number: {}", referenceNumber);
+        return transactionDetailRepository.findByReferenceNumber(referenceNumber);
+    }
+    @Override
+    @Transactional
+    public TransactionDetail getTransactionByReferenceNumberWithEntityManager(String referenceNumber) {
+        log.info("Getting transaction by reference number {}  via EM: {} ", referenceNumber, entityManager.getClass().getSimpleName());
+        TypedQuery<TransactionDetail> query = entityManager.createQuery(FETCH_TRAN_DETAILS_BY_TRANSACTION_REF, TransactionDetail.class);
+        query.setParameter("transactionReferenceNumber", referenceNumber);
+        query.setLockMode(LockModeType.PESSIMISTIC_READ);
+        return query.getSingleResult();
+    }
+
+
+
 }

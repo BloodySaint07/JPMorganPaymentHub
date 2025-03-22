@@ -32,4 +32,14 @@ public class TransactionController {
                 requestDTO.getReferenceNumber()
         );
     }
+    @GetMapping("/transaction/{referenceNumber}")
+    public TransactionDetail getTransactionByReferenceNumber(@PathVariable String referenceNumber) {
+        log.info("Fetching transaction by reference number: {}", referenceNumber);
+        return transactionService.getTransactionByReferenceNumber(referenceNumber);
+    }
+    @GetMapping("/transaction/v2/{referenceNumber}")
+    public TransactionDetail getTransactionByReferenceNumberEnhanced(@PathVariable String referenceNumber) {
+        log.info("Fetching transaction by reference number via Enhanced Path: {}", referenceNumber);
+        return transactionService.getTransactionByReferenceNumberWithEntityManager(referenceNumber);
+    }
 }
