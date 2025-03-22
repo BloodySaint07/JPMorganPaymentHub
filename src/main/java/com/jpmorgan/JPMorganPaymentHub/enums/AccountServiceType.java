@@ -1,0 +1,14 @@
+package com.jpmorgan.JPMorganPaymentHub.enums;
+
+public enum AccountServiceType {
+    PREMIUM_BANKING,
+    STANDARD_BANKING,
+    BUSINESS_BANKING,
+    STUDENT_BANKING,
+    RETIREMENT_PLANNING,
+    INVESTMENT_SERVICES,
+    LOAN_SERVICES,
+    CREDIT_CARD_SERVICES,
+    DEBIT_CARD_SERVICES,
+    MOBILE_BANKING
+}

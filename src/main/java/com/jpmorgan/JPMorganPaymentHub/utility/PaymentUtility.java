@@ -35,4 +35,10 @@ public class PaymentUtility {
                 account.getAccountName(), account.getAccountNumber(), account.getCountry()
         ));
     }
+    public String guessProvider(String cardNumber) {
+        if (cardNumber.startsWith("4")) return "Visa";
+        if (cardNumber.startsWith("5")) return "MasterCard";
+        return "Unknown";
+    }
+
 }

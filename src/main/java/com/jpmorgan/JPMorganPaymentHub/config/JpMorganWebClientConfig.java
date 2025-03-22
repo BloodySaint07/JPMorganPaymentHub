@@ -1,5 +1,6 @@
 package com.jpmorgan.JPMorganPaymentHub.config;
 
+import io.netty.handler.logging.LogLevel;
 import io.netty.handler.ssl.SslContextBuilder;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import org.slf4j.Logger;
@@ -12,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 import reactor.netty.http.client.HttpClient;
 
+import javax.net.ssl.SSLException;
 import java.util.UUID;
 
 @Configuration
@@ -22,13 +24,9 @@ public class JpMorganWebClientConfig {
     @Bean("jpmorganWebClient")
     public WebClient getWebClient() {
         HttpClient httpClient = HttpClient.create()
-                .wiretap(true)
+                .wiretap("reactor.netty.http.client.HttpClient", LogLevel.DEBUG)
                 .compress(true)
-               /* .secure(sslContextSpec -> sslContextSpec.sslContext(
-                        SslContextBuilder.forClient()
-                                .trustManager(InsecureTrustManagerFactory.INSTANCE)
-                                .protocols("TLSv1.2", "TLSv1.3")
-                ))*/;
+                .doOnConnected(conn -> log.info("Connected to: {}", conn.address()));
 
         return WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
