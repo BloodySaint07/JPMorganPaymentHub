@@ -24,7 +24,7 @@ import static com.jpmorgan.JPMorganPaymentHub.constant.SQLQueries.FETCH_TRAN_DET
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
-    private static final Logger log = LoggerFactory.getLogger(TransactionService.class);
+    private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
 
     @Autowired
     private TransactionDetailRepository transactionDetailRepository;
