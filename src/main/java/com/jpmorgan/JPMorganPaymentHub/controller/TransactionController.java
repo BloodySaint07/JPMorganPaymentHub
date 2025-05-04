@@ -10,6 +10,7 @@ import com.jpmorgan.JPMorganPaymentHub.validation.TransactionValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.validation.BeanPropertyBindingResult;
 import org.springframework.web.bind.annotation.*;
 
@@ -47,18 +48,21 @@ public class TransactionController {
     }
 
     @GetMapping("/transaction/{referenceNumber}")
+    @Cacheable(value = "transactions", key = "#referenceNumber")
     public TransactionDetail getTransactionByReferenceNumber(@PathVariable String referenceNumber) {
         log.info("Fetching transaction by reference number: {}", referenceNumber);
         return transactionService.getTransactionByReferenceNumber(referenceNumber);
     }
 
     @GetMapping("/transaction/v2/{referenceNumber}")
+    @Cacheable(value = "transactions", key = "#referenceNumber")
     public TransactionDetail getTransactionByReferenceNumberEnhanced(@PathVariable String referenceNumber) {
         log.info("Fetching transaction by reference number via Enhanced Path: {}", referenceNumber);
         return transactionService.getTransactionByReferenceNumberWithEntityManager(referenceNumber);
     }
 
     @GetMapping("/transaction/v3/{referenceNumber}")
+    @Cacheable(value = "transactions", key = "#referenceNumber")
     public String getTransactionByReferenceNumberEnhancedV3(@PathVariable String referenceNumber) {
         log.info("Fetching transaction by reference number via Enhanced Async Path: {}", referenceNumber);
         try {

@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import javax.persistence.*;
+import java.io.Serializable;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
@@ -13,8 +14,8 @@ import java.time.LocalDateTime;
 @Table(name = "transaction_details")
 @Data
 @NoArgsConstructor
-public class TransactionDetail {
-
+public class TransactionDetail implements Serializable {
+    private static final long serialVersionUID = 1L;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
