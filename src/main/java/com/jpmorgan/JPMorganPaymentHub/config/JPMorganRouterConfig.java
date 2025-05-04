@@ -1,5 +1,7 @@
 package com.jpmorgan.JPMorganPaymentHub.config;
 
+import com.jpmorgan.JPMorganPaymentHub.exception.BadRequestException;
+import com.jpmorgan.JPMorganPaymentHub.exception.ResourceNotFoundException;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -30,8 +32,8 @@ public class JPMorganRouterConfig {
 
     private RouterFunction<ServerResponse> errorRoutes() {
         return route()
-                .onError(Exception.class, this::handleResourceNotFoundException)
-                .onError(Exception.class, this::handleBadRequestException)
+                .onError(ResourceNotFoundException.class, this::handleResourceNotFoundException)
+                .onError(BadRequestException.class, this::handleBadRequestException)
                 .onError(Exception.class, this::handleGenericException)
                 .build();
     }

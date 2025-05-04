@@ -1,8 +1,6 @@
 package com.jpmorgan.JPMorganPaymentHub.service;
 
-import com.jpmorgan.JPMorganPaymentHub.model.AccountDetails;
-import com.jpmorgan.JPMorganPaymentHub.model.PaymentDetails;
-import com.jpmorgan.JPMorganPaymentHub.model.TransactionDetail;
+import com.jpmorgan.JPMorganPaymentHub.model.*;
 import com.jpmorgan.JPMorganPaymentHub.repository.AccountEntityRepository;
 import com.jpmorgan.JPMorganPaymentHub.repository.PaymentMethodRepository;
 import com.jpmorgan.JPMorganPaymentHub.repository.TransactionDetailRepository;
@@ -11,53 +9,53 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import javax.persistence.EntityManager;
 import javax.persistence.LockModeType;
 import javax.persistence.PersistenceContext;
 import javax.persistence.TypedQuery;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 
+import static com.jpmorgan.JPMorganPaymentHub.constant.SQLQueries.FETCH_TRAN_DESC_BY_TRANSACTION_REF;
 import static com.jpmorgan.JPMorganPaymentHub.constant.SQLQueries.FETCH_TRAN_DETAILS_BY_TRANSACTION_REF;
 
 @Service
 public class TransactionServiceImpl implements TransactionService {
 
     private static final Logger log = LoggerFactory.getLogger(TransactionServiceImpl.class);
-
-    @Autowired
-    private TransactionDetailRepository transactionDetailRepository;
-
-    @Autowired
-    private AccountEntityRepository accountEntityRepository;
-
-    @Autowired
-    private PaymentMethodRepository paymentMethodRepository;
     @PersistenceContext
     EntityManager entityManager;
+    @Autowired
+    private TransactionDetailRepository transactionDetailRepository;
+    @Autowired
+    private AccountEntityRepository accountEntityRepository;
+    @Autowired
+    private PaymentMethodRepository paymentMethodRepository;
+
+    @Autowired
+    private TransactionTemplate transactionTemplate;
 
     @Override
     @Transactional
-    public TransactionDetail createTransaction(String accountNumber, Long paymentMethodId, BigDecimal amount,
-                                               String transactionType, String description, String referenceNumber) {
-        AccountDetails account = accountEntityRepository.findByAccountNumber(accountNumber);
+    public TransactionDetail createTransaction(TransactionRequestDTO transferRequest) {
+        AccountDetails account = accountEntityRepository.findByAccountNumber(transferRequest.getAccountNumber());
         if (account == null) {
-            throw new IllegalArgumentException("Account not found with number: " + accountNumber);
+            throw new IllegalArgumentException("Account not found with number: " + transferRequest.getAccountNumber());
         }
 
-        PaymentDetails paymentMethod = paymentMethodRepository.findById(paymentMethodId)
-                .orElseThrow(() -> new IllegalArgumentException("Payment method not found with ID: " + paymentMethodId));
+        PaymentDetails paymentMethod = paymentMethodRepository.findById(transferRequest.getPaymentMethodId()).orElseThrow(() -> new IllegalArgumentException("Payment method not found with ID: " + transferRequest.getPaymentMethodId()));
 
         TransactionDetail transaction = new TransactionDetail();
         transaction.setAccount(account);
         transaction.setPaymentMethod(paymentMethod);
-        transaction.setAmount(amount);
-        transaction.setTransactionType(transactionType);
+        transaction.setAmount(transferRequest.getAmount());
+        transaction.setTransactionType(transferRequest.getTransactionType());
         transaction.setTransactionDate(LocalDateTime.now());
-        transaction.setDescription(description);
+        transaction.setDescription(transferRequest.getDescription());
         transaction.setStatus("PENDING");
-        transaction.setReferenceNumber(referenceNumber);
+        transaction.setReferenceNumber(transferRequest.getReferenceNumber());
 
         // Update relationships
         account.getTransactions().add(transaction);
@@ -65,10 +63,24 @@ public class TransactionServiceImpl implements TransactionService {
 
         // Persist transaction
         TransactionDetail savedTransaction = transactionDetailRepository.save(transaction);
-        log.info("Transaction created successfully with ID: {}", savedTransaction.getId());
+        log.info("Transaction created successfully with ID :{}.Request done with Correlation-ID :{} and Session-Key :{}", savedTransaction.getId(), transferRequest.getCorrelationId(), transferRequest.getSessionKey());
 
         return savedTransaction;
     }
+
+    @Override
+    @Transactional
+    public TransactionDetail updateTransaction(TransactionUpdateRequest transferUpdateRequest) {
+        TransactionDetail transactionDetails = transactionDetailRepository.findByReferenceNumber(transferUpdateRequest.getReferenceNumber());
+        if (transactionDetails == null) {
+            throw new IllegalArgumentException("Transaction not found with reference number: " + transferUpdateRequest.getReferenceNumber());
+        } else {
+            transactionDetails.setStatus(transferUpdateRequest.getStatus());
+            entityManager.merge(transactionDetails);
+        }
+        return transactionDetails;
+    }
+
 
     @Override
     @Transactional
@@ -76,6 +88,7 @@ public class TransactionServiceImpl implements TransactionService {
         log.info("Getting transaction by reference number: {}", referenceNumber);
         return transactionDetailRepository.findByReferenceNumber(referenceNumber);
     }
+
     @Override
     @Transactional
     public TransactionDetail getTransactionByReferenceNumberWithEntityManager(String referenceNumber) {
@@ -86,6 +99,42 @@ public class TransactionServiceImpl implements TransactionService {
         return query.getSingleResult();
     }
 
+
+    @Override
+    @Transactional
+    public CompletableFuture<String> getTransactionDescriptionByReferenceNumberWithEntityManager(String referenceNumber) {
+        log.info("Getting transaction description by reference number {} via EM: {}", referenceNumber, entityManager.getClass().getSimpleName());
+
+        CompletableFuture<String> descriptionFuture = CompletableFuture.supplyAsync(() -> transactionTemplate.execute(status -> fetchTransactionDescription(referenceNumber)));
+        CompletableFuture<TransactionDetail> detailFuture = CompletableFuture.supplyAsync(() -> transactionTemplate.execute(status -> fetchTransactionDetail(referenceNumber)));
+
+        return descriptionFuture.thenCombine(detailFuture, (desc, fullDetails) -> {
+            if (desc.equalsIgnoreCase(fullDetails.getDescription())) {
+                log.info("Description matched for reference number: {}", referenceNumber);
+                return desc;
+            } else {
+                log.error("Error in description for reference number: {}", referenceNumber);
+                return null;
+            }
+        }).exceptionally(throwable -> {
+            log.error("Error processing transaction for reference number: {}", referenceNumber, throwable);
+            return null;
+        });
+    }
+
+    public String fetchTransactionDescription(String referenceNumber) {
+        TypedQuery<String> query = entityManager.createQuery(FETCH_TRAN_DESC_BY_TRANSACTION_REF, String.class);
+        query.setParameter("transactionReferenceNumber", referenceNumber);
+        query.setLockMode(LockModeType.PESSIMISTIC_READ);
+        return query.getSingleResult();
+    }
+
+    public TransactionDetail fetchTransactionDetail(String referenceNumber) {
+        TypedQuery<TransactionDetail> query = entityManager.createQuery(FETCH_TRAN_DETAILS_BY_TRANSACTION_REF, TransactionDetail.class);
+        query.setParameter("transactionReferenceNumber", referenceNumber);
+        query.setLockMode(LockModeType.PESSIMISTIC_READ);
+        return query.getSingleResult();
+    }
 
 
 }
